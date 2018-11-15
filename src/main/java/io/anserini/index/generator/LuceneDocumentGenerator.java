@@ -125,12 +125,14 @@ public class LuceneDocumentGenerator<T extends SourceDocument> {
     // This is needed to break score ties by docid.
     document.add(new SortedDocValuesField(FIELD_ID, new BytesRef(id)));
 
-    if (args.storeRawDocs) {
-      document.add(new StoredField(FIELD_RAW, src.content()));
+    if (args.storeRawDocs && args.storeTransformedDocs) {
+      LOG.error("Only one of -storeRawDocs or -storeTransformedDocs should be specified.");
+      counters.errors.incrementAndGet();
+      return null;
     }
 
     FieldType fieldType = new FieldType();
-    fieldType.setStored(args.storeTransformedDocs);
+    fieldType.setStored(args.storeRawDocs || args.storeTransformedDocs);
 
     // Are we storing document vectors?
     if (args.storeDocvectors) {
@@ -145,7 +147,7 @@ public class LuceneDocumentGenerator<T extends SourceDocument> {
       fieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS);
     }
 
-    document.add(new Field(FIELD_BODY, contents, fieldType));
+    document.add(new Field(FIELD_BODY, args.storeRawDocs ? src.content() : contents, fieldType));
 
     return document;
   }
