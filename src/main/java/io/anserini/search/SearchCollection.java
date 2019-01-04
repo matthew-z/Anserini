@@ -26,6 +26,7 @@ import io.anserini.rerank.ScoredDocuments;
 import io.anserini.rerank.lib.AxiomReranker;
 import io.anserini.rerank.lib.NewsBackgroundLinkingReranker;
 import io.anserini.rerank.lib.Rm3Reranker;
+import io.anserini.rerank.lib.BM25PRFReranker;
 import io.anserini.rerank.lib.ScoreTiesAdjusterReranker;
 import io.anserini.search.query.BagOfWordsQueryGenerator;
 import io.anserini.search.query.SdmQueryGenerator;
@@ -204,7 +205,7 @@ public final class SearchCollection implements Closeable {
       qc = QueryConstructor.BagOfTerms;
     }
   
-    isRerank = args.rm3 || args.axiom;
+    isRerank = args.rm3 || args.axiom || args.bm25prf;
   }
 
   @Override
@@ -287,7 +288,20 @@ public final class SearchCollection implements Closeable {
           }
         }
       }
-    } else {
+    } else if (args.bm25prf) {
+      for (String fbTerms : args.bm25prf_fbTerms) {
+        for (String fbDocs : args.bm25prf_fbDocs) {
+            RerankerCascade cascade = new RerankerCascade();
+            cascade.add(new BM25PRFReranker(analyzer, FIELD_BODY, Integer.valueOf(fbTerms),
+                    Integer.valueOf(fbDocs),  args.bm25prf_outputQuery));
+            cascade.add(new ScoreTiesAdjusterReranker());
+            String tag = "bm25prf.fbTerms:"+fbTerms+",bm25prf.fbDocs:"+fbDocs;
+            cascades.put(tag, cascade);
+        }
+      }
+    }
+
+    else {
       RerankerCascade cascade = new RerankerCascade();
       cascade.add(new ScoreTiesAdjusterReranker());
       cascades.put("", cascade);
