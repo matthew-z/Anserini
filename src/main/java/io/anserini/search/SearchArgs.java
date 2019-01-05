@@ -201,7 +201,7 @@ public class SearchArgs {
           usage = "RM3 parameter: number of documents")
   public String[] bm25prf_fbDocs = new String[] {"40"};
 
-  @Option(name = "bm25prf.outputQuery",
+  @Option(name = "-bm25prf.outputQuery",
           usage = "RM3 parameter: print original and expanded queries")
   public boolean bm25prf_outputQuery = false;
 
