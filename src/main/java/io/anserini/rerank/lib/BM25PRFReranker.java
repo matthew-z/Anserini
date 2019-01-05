@@ -52,7 +52,7 @@ public class BM25PRFReranker implements Reranker {
         List<String> originalQueryTerms = AnalyzerUtils.tokenize(analyzer, context.getQueryText());
 
         PRFFeatures fv = expandQuery(originalQueryTerms, docs, reader);
-        Query newQuery = fv.toQuery(fbTerms);
+        Query newQuery = fv.toQuery();
 
         if (this.outputQuery) {
             LOG.info("QID: " + context.getQueryId());
@@ -109,25 +109,9 @@ public class BM25PRFReranker implements Reranker {
             features.put(term, new PRFFeature(df, dfRel, numDocs, numDocsRel));
         }
 
-        double getRelWeight(String term) {
-            if (!features.containsKey(term)) {
-                return 0;
-            }
-            return features.get(term).getRelWeight();
-        }
 
-
-        double getOfferWeight(String term) {
-            if (!features.containsKey(term)) {
-                return 0;
-            }
-            return features.get(term).getOfferWeight();
-        }
-
-
-        Query toQuery(int numTerms){
+        Query toQuery(){
             BooleanQuery.Builder feedbackQueryBuilder = new BooleanQuery.Builder();
-            pruneToSize(numTerms);
 
             for (Map.Entry<String, PRFFeature> f : features.entrySet()) {
                 String term = f.getKey();
@@ -147,7 +131,7 @@ public class BM25PRFReranker implements Reranker {
             }
 
             Collections.sort(kvpList, new Comparator<KeyValuePair>() {
-                public int compare(KeyValuePair x, KeyValuePair y) {
+                    public int compare(KeyValuePair x, KeyValuePair y) {
                     double xVal = x.getValue();
                     double yVal = y.getValue();
 
@@ -164,10 +148,10 @@ public class BM25PRFReranker implements Reranker {
             HashMap<String, PRFFeature> pruned = new HashMap<>();
 
             for (KeyValuePair pair : pairs) {
-                pruned.put(pair.getKey(), pair.getFeature());
                 if (pruned.size() >= k) {
                     break;
                 }
+                pruned.put(pair.getKey(), pair.getFeature());
             }
 
             this.features = pruned;
@@ -207,9 +191,10 @@ public class BM25PRFReranker implements Reranker {
     }
 
 
-    private PRFFeatures expandQuery(List<String> originalQueryTerms, ScoredDocuments docs, IndexReader reader) {
-        PRFFeatures f = new PRFFeatures();
-        Set<String> vocab = new HashSet<>(originalQueryTerms);
+    private PRFFeatures expandQuery(List<String> originalTerms, ScoredDocuments docs, IndexReader reader) {
+        PRFFeatures newFeatures = new PRFFeatures();
+
+        Set<String> vocab = new HashSet<>();
 
         Map<Integer, Set<String>> docToTermsMap = new HashMap<>();
         int numRelDocs = docs.documents.length < fbDocs ? docs.documents.length : fbDocs;
@@ -227,6 +212,8 @@ public class BM25PRFReranker implements Reranker {
         }
 
         for (String term : vocab) {
+            if (term.length() < 2 || term.length() > 20) continue;
+            if (!term.matches("[a-z0-9]+")) continue;
             try {
                 int df = reader.docFreq(new Term(FIELD_BODY, term));
                 int dfRel = 0;
@@ -237,12 +224,35 @@ public class BM25PRFReranker implements Reranker {
                         dfRel++;
                     }
                 }
-                f.addFeature(term, df, dfRel, numDocs, numRelDocs);
+                newFeatures.addFeature(term, df, dfRel, numDocs, numRelDocs);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        return f;
+
+        newFeatures.pruneToSize(fbTerms);
+
+        for (String term: originalTerms){
+            if (newFeatures.features.containsKey(term)){
+                continue;
+            }
+
+            try {
+                int df = reader.docFreq(new Term(FIELD_BODY, term));
+                int dfRel = 0;
+
+                for (int i = 0; i < numRelDocs; i++) {
+                    Set<String> terms = docToTermsMap.get(docs.ids[i]);
+                    if (terms.contains(term)) {
+                        dfRel++;
+                    }
+                }
+                newFeatures.addFeature(term, df, dfRel, numDocs, numRelDocs);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return newFeatures;
     }
 
 
