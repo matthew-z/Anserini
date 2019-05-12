@@ -201,6 +201,18 @@ public class SearchArgs {
           usage = "RM3 parameter: number of documents")
   public String[] bm25prf_fbDocs = new String[] {"40"};
 
+  @Option(name = "-bm25prf.k1", handler = StringArrayOptionHandler.class,
+          usage = "bm25PRF parameter: k1")
+  public String[] bm25prf_k1 = new String[] {"0.9"};
+
+  @Option(name = "-bm25prf.b", handler = StringArrayOptionHandler.class,
+          usage = "bm25PRF parameter: b")
+  public String[] bm25prf_b = new String[] {"0.4"};
+
+  @Option(name = "-bm25prf.newTermWeight", handler = StringArrayOptionHandler.class,
+          usage = "bm25PRF parameter: newTermWeight")
+  public String[] bm25prf_newTermWeight = new String[] {"0.2"};
+
   @Option(name = "-bm25prf.outputQuery",
           usage = "RM3 parameter: print original and expanded queries")
   public boolean bm25prf_outputQuery = false;

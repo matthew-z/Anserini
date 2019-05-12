@@ -288,17 +288,24 @@ public final class SearchCollection implements Closeable {
           }
         }
       }
-    } else if (args.bm25prf) {
-      for (String fbTerms : args.bm25prf_fbTerms) {
-        for (String fbDocs : args.bm25prf_fbDocs) {
-            RerankerCascade cascade = new RerankerCascade();
-            cascade.add(new BM25PRFReranker(analyzer, FIELD_BODY, Integer.valueOf(fbTerms),
-                    Integer.valueOf(fbDocs),  args.bm25prf_outputQuery));
-            cascade.add(new ScoreTiesAdjusterReranker());
-            String tag = "bm25prf.fbTerms:"+fbTerms+",bm25prf.fbDocs:"+fbDocs;
-            cascades.put(tag, cascade);
+    }else if (args.bm25prf) {
+        for (String fbTerms : args.bm25prf_fbTerms) {
+            for (String fbDocs : args.bm25prf_fbDocs) {
+                for (String k1 : args.bm25prf_k1) {
+                    for (String b : args.bm25prf_b) {
+                        for (String newTermWeight : args.bm25prf_newTermWeight) {
+                            RerankerCascade cascade = new RerankerCascade();
+                            cascade.add(new BM25PRFReranker(analyzer, FIELD_BODY, Integer.valueOf(fbTerms),
+                                    Integer.valueOf(fbDocs), Float.valueOf(k1), Float.valueOf(b), Float.valueOf(newTermWeight),
+                                    args.bm25prf_outputQuery));
+                            cascade.add(new ScoreTiesAdjusterReranker());
+                            String tag = "nTerms:" + fbTerms + ",nDocs:" + fbDocs + ",prf.k1" + k1 + ",prf.b" + b + ",newTermWeight" + newTermWeight;
+                            cascades.put(tag, cascade);
+                        }
+                    }
+                }
+            }
         }
-      }
     }
 
     else {

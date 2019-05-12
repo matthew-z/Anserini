@@ -29,13 +29,19 @@ public class BM25PRFReranker implements Reranker {
     private final String field;
     private final boolean outputQuery;
     private final int fbTerms;
+    private final float k1;
+    private final float b;
+    private final float newTermWeight;
 
-    public BM25PRFReranker(Analyzer analyzer, String field, int fbTerms, int fbDocs, boolean outputQuery) {
+    public BM25PRFReranker(Analyzer analyzer, String field, int fbTerms, int fbDocs, float k1, float b, float  newTermWeight, boolean outputQuery) {
         this.analyzer = analyzer;
         this.outputQuery = outputQuery;
         this.field = field;
         this.fbTerms = fbTerms;
         this.fbDocs = fbDocs;
+        this.k1 = k1;
+        this.b = b;
+        this.newTermWeight = newTermWeight;
     }
 
     @Override
@@ -44,9 +50,6 @@ public class BM25PRFReranker implements Reranker {
         // set similarity to BM25PRF
         IndexSearcher searcher = context.getIndexSearcher();
         BM25Similarity originalSimilarity = (BM25Similarity) searcher.getSimilarity(true);
-        float k1 = originalSimilarity.getK1();
-        float b = originalSimilarity.getB();
-
         searcher.setSimilarity(new BM25PRFSimilarity(k1, b));
         IndexReader reader = searcher.getIndexReader();
         List<String> originalQueryTerms = AnalyzerUtils.tokenize(analyzer, context.getQueryText());
@@ -79,17 +82,24 @@ public class BM25PRFReranker implements Reranker {
         int dfRel;
         int numDocs;
         int numDocsRel;
+        float weight;
 
         PRFFeature(int df, int dfRel, int numDocs, int numDocsRel) {
+            this(df, dfRel, numDocs, numDocsRel, 1.0f);
+        }
+
+
+        PRFFeature(int df, int dfRel, int numDocs, int numDocsRel, float weight) {
             this.df = df;
             this.dfRel = dfRel;
             this.numDocs = numDocs;
             this.numDocsRel = numDocsRel;
+            this.weight = weight;
         }
 
         double getRelWeight() {
             return Math.log((dfRel + 0.5D) * (numDocs - df - numDocsRel + dfRel + 0.5D) /
-                    ((df - dfRel + 0.5D) * (numDocsRel - dfRel + 0.5D)));
+                    ((df - dfRel + 0.5D) * (numDocsRel - dfRel + 0.5D))) * weight;
         }
 
         double getOfferWeight() {
@@ -105,12 +115,17 @@ public class BM25PRFReranker implements Reranker {
             this.features = new HashMap<>();
         }
 
-        void addFeature(String term, int df, int dfRel, int numDocs, int numDocsRel) {
-            features.put(term, new PRFFeature(df, dfRel, numDocs, numDocsRel));
+        void addFeature(String term, int df, int dfRel, int numDocs, int numDocsRel, float weight) {
+            features.put(term, new PRFFeature(df, dfRel, numDocs, numDocsRel, weight));
         }
 
 
-        Query toQuery(){
+        void addFeature(String term, int df, int dfRel, int numDocs, int numDocsRel) {
+            addFeature(term, df, dfRel, numDocs, numDocsRel, 1.0f);
+        }
+
+
+        public Query toQuery(){
             BooleanQuery.Builder feedbackQueryBuilder = new BooleanQuery.Builder();
 
             for (Map.Entry<String, PRFFeature> f : features.entrySet()) {
@@ -211,6 +226,7 @@ public class BM25PRFReranker implements Reranker {
             }
         }
 
+        // Add New Terms
         for (String term : vocab) {
             if (term.length() < 2 || term.length() > 20) continue;
             if (!term.matches("[a-z0-9]+")) continue;
@@ -224,7 +240,11 @@ public class BM25PRFReranker implements Reranker {
                         dfRel++;
                     }
                 }
-                newFeatures.addFeature(term, df, dfRel, numDocs, numRelDocs);
+
+                if (dfRel < 2){
+                    continue;
+                }
+                newFeatures.addFeature(term, df, dfRel, numDocs, numRelDocs, newTermWeight);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -258,7 +278,7 @@ public class BM25PRFReranker implements Reranker {
 
     @Override
     public String tag() {
-        return "BM25PRF(fbDocs="+fbDocs+",fbTerms="+fbTerms;
+        return "BM25PRF(fbDocs="+fbDocs+",fbTerms="+fbTerms +",k1="+k1+",b"+b+"newTermWeight"+newTermWeight;
     }
 
 
