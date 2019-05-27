@@ -16,6 +16,7 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.util.BytesRef;
 
+import java.io.Console;
 import java.io.IOException;
 import java.util.*;
 
@@ -33,7 +34,7 @@ public class BM25PRFReranker implements Reranker {
     private final float b;
     private final float newTermWeight;
 
-    public BM25PRFReranker(Analyzer analyzer, String field, int fbTerms, int fbDocs, float k1, float b, float  newTermWeight, boolean outputQuery) {
+    public BM25PRFReranker(Analyzer analyzer, String field, int fbTerms, int fbDocs, float k1, float b, float newTermWeight, boolean outputQuery) {
         this.analyzer = analyzer;
         this.outputQuery = outputQuery;
         this.field = field;
@@ -61,6 +62,7 @@ public class BM25PRFReranker implements Reranker {
             LOG.info("QID: " + context.getQueryId());
             LOG.info("Original Query: " + context.getQuery().toString(this.field));
             LOG.info("Running new query: " + newQuery.toString(this.field));
+            LOG.info("Features: " + fv.toString());
         }
 
         TopDocs rs;
@@ -84,10 +86,6 @@ public class BM25PRFReranker implements Reranker {
         int numDocsRel;
         float weight;
 
-        PRFFeature(int df, int dfRel, int numDocs, int numDocsRel) {
-            this(df, dfRel, numDocs, numDocsRel, 1.0f);
-        }
-
 
         PRFFeature(int df, int dfRel, int numDocs, int numDocsRel, float weight) {
             this.df = df;
@@ -104,6 +102,12 @@ public class BM25PRFReranker implements Reranker {
 
         double getOfferWeight() {
             return getRelWeight() * dfRel;
+        }
+
+
+        @Override
+        public String toString() {
+            return String.format("%d, %d, %d, %d, %f, %f, %f", df, dfRel, numDocs, numDocsRel, weight, getRelWeight(), getOfferWeight());
         }
     }
 
@@ -125,12 +129,12 @@ public class BM25PRFReranker implements Reranker {
         }
 
 
-        public Query toQuery(){
+        public Query toQuery() {
             BooleanQuery.Builder feedbackQueryBuilder = new BooleanQuery.Builder();
 
             for (Map.Entry<String, PRFFeature> f : features.entrySet()) {
                 String term = f.getKey();
-                float prob = (float)f.getValue().getRelWeight();
+                float prob = (float) f.getValue().getRelWeight();
                 feedbackQueryBuilder.add(new BoostQuery(new TermQuery(new Term(field, term)), prob), BooleanClause.Occur.SHOULD);
             }
             return feedbackQueryBuilder.build();
@@ -146,7 +150,7 @@ public class BM25PRFReranker implements Reranker {
             }
 
             Collections.sort(kvpList, new Comparator<KeyValuePair>() {
-                    public int compare(KeyValuePair x, KeyValuePair y) {
+                public int compare(KeyValuePair x, KeyValuePair y) {
                     double xVal = x.getValue();
                     double yVal = y.getValue();
 
@@ -203,6 +207,17 @@ public class BM25PRFReranker implements Reranker {
         }
 
 
+        @Override
+        public String toString() {
+            List<String> strBuilder = new ArrayList<String>();
+            List<KeyValuePair> pairs = getOrderedFeatures();
+
+            for (KeyValuePair pair : pairs) {
+                strBuilder.add(pair.getKey() + "," + pair.getFeature());
+            }
+
+            return String.join("||", strBuilder);
+        }
     }
 
 
@@ -226,10 +241,15 @@ public class BM25PRFReranker implements Reranker {
             }
         }
 
+        Set<String> originalTermsSet = new HashSet<>(originalTerms);
+
         // Add New Terms
         for (String term : vocab) {
+            if (originalTermsSet.contains(term)) continue;
             if (term.length() < 2 || term.length() > 20) continue;
             if (!term.matches("[a-z0-9]+")) continue;
+            if (term.matches("[0-9]+")) continue;
+
             try {
                 int df = reader.docFreq(new Term(FIELD_BODY, term));
                 int dfRel = 0;
@@ -241,7 +261,7 @@ public class BM25PRFReranker implements Reranker {
                     }
                 }
 
-                if (dfRel < 2){
+                if (dfRel < 2) {
                     continue;
                 }
                 newFeatures.addFeature(term, df, dfRel, numDocs, numRelDocs, newTermWeight);
@@ -252,11 +272,7 @@ public class BM25PRFReranker implements Reranker {
 
         newFeatures.pruneToSize(fbTerms);
 
-        for (String term: originalTerms){
-            if (newFeatures.features.containsKey(term)){
-                continue;
-            }
-
+        for (String term : originalTerms) {
             try {
                 int df = reader.docFreq(new Term(FIELD_BODY, term));
                 int dfRel = 0;
@@ -278,7 +294,7 @@ public class BM25PRFReranker implements Reranker {
 
     @Override
     public String tag() {
-        return "BM25PRF(fbDocs="+fbDocs+",fbTerms="+fbTerms +",k1="+k1+",b"+b+"newTermWeight"+newTermWeight;
+        return "BM25PRF(fbDocs=" + fbDocs + ",fbTerms=" + fbTerms + ",k1=" + k1 + ",b=" + b + "newTermWeight=" + newTermWeight;
     }
 
 
@@ -291,8 +307,6 @@ public class BM25PRFReranker implements Reranker {
             BytesRef text;
             while ((text = termsEnum.next()) != null) {
                 String term = text.utf8ToString();
-//                if (term.length() < 2 || term.length() > 20) continue;
-//                if (!term.matches("[a-z0-9]+")) continue;
                 termsStr.add(term);
 
             }
