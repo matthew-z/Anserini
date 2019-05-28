@@ -101,7 +101,7 @@ public class BM25PRFReranker implements Reranker {
         }
 
         double getOfferWeight() {
-            return getRelWeight() * dfRel;
+            return getRelWeight() * Math.log(dfRel);
         }
 
 
