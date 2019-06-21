@@ -299,7 +299,7 @@ public final class SearchCollection implements Closeable {
                                     Integer.valueOf(fbDocs), Float.valueOf(k1), Float.valueOf(b), Float.valueOf(newTermWeight),
                                     args.bm25prf_outputQuery));
                             cascade.add(new ScoreTiesAdjusterReranker());
-                            String tag = "nTerms:" + fbTerms + ",nDocs:" + fbDocs + ",prf.k1" + k1 + ",prf.b" + b + ",newTermWeight" + newTermWeight;
+                            String tag = "bm25prf.fbTerms:" + fbTerms + ",fbDocs:" + fbDocs + ",bm25prf.k1:" + k1 + ",bm25prf.b:" + b + ",bm25prf.newTermWeight:" + newTermWeight;
                             cascades.put(tag, cascade);
                         }
                     }

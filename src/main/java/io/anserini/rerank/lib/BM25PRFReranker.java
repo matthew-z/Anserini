@@ -294,7 +294,7 @@ public class BM25PRFReranker implements Reranker {
 
     @Override
     public String tag() {
-        return "BM25PRF(fbDocs=" + fbDocs + ",fbTerms=" + fbTerms + ",k1=" + k1 + ",b=" + b + "newTermWeight=" + newTermWeight;
+        return "BM25PRF(fbDocs=" + fbDocs + ",fbTerms=" + fbTerms + ",k1=" + k1 + ",b=" + b + ",newTermWeight=" + newTermWeight;
     }
 
 
