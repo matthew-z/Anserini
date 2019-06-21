@@ -199,7 +199,7 @@ public class SearchArgs {
 
   @Option(name = "-bm25prf.fbDocs", handler = StringArrayOptionHandler.class,
           usage = "RM3 parameter: number of documents")
-  public String[] bm25prf_fbDocs = new String[] {"40"};
+  public String[] bm25prf_fbDocs = new String[] {"10"};
 
   @Option(name = "-bm25prf.k1", handler = StringArrayOptionHandler.class,
           usage = "bm25PRF parameter: k1")
