@@ -3,7 +3,6 @@ package io.anserini.rerank.lib;
 import io.anserini.rerank.Reranker;
 import io.anserini.rerank.RerankerContext;
 import io.anserini.rerank.ScoredDocuments;
-import io.anserini.search.similarity.BM25PRFSimilarity;
 import io.anserini.util.AnalyzerUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,11 +15,25 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.util.BytesRef;
 
-import java.io.Console;
 import java.io.IOException;
 import java.util.*;
 
 import static io.anserini.index.generator.LuceneDocumentGenerator.FIELD_BODY;
+
+
+class BM25PRFSimilarity extends BM25Similarity {
+
+    BM25PRFSimilarity(float k1, float b) {
+        super(k1, b);
+    }
+
+    @Override
+    // idf is not needed in BM25PRF
+    protected float idf(long docFreq, long docCount) {
+        return 1;
+    }
+}
+
 
 public class BM25PRFReranker implements Reranker {
     private static final Logger LOG = LogManager.getLogger(BM25PRFReranker.class);
